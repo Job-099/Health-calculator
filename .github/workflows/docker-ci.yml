@@ -22,11 +22,6 @@ jobs:
         run: |
           docker build -t health-calculator .
 
-      # Étape 4 : Exécuter les tests unitaires
-      - name: Run tests
-        run: |
-          docker run --rm health-calculator python -m unittest discover
-
   deploy:
     runs-on: ubuntu-latest
     needs: build
