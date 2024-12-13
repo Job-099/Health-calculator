@@ -1,0 +1,14 @@
+# Ignorer le répertoire .venv
+.venv/
+
+# Ignorer les fichiers __pycache__ et les fichiers .pyc
+__pycache__/
+*.pyc
+
+# Ignorer les fichiers de configuration et les fichiers générés par l'environnement virtuel
+*.cfg
+*.log
+*.swp
+.venv/
+__pycache__/
+*.pyc
