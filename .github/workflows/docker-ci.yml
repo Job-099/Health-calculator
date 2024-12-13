@@ -9,78 +9,55 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # Étape 1 : Cloner le dépôt
       - name: Checkout code
         uses: actions/checkout@v2
 
+      # Étape 2 : Configurer Docker
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      # Étape 3 : Construire l'image Docker
       - name: Build Docker image
         run: |
-          IMAGE_NAME="health-calculator"
-          docker build -t $IMAGE_NAME .
+          docker build -t health-calculator .
 
+      # Étape 4 : Exécuter les tests unitaires
       - name: Run tests
         run: |
-          IMAGE_NAME="health-calculator"
-          docker run --rm $IMAGE_NAME python -m unittest discover
+          docker run --rm health-calculator python -m unittest discover
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
     steps:
+      # Étape 1 : Cloner le dépôt
       - name: Checkout code
         uses: actions/checkout@v2
 
+      # Étape 2 : Connexion à Azure
       - name: Login to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Set ACR variables
-        run: |
-          ACR_NAME="healthcalculatoracr"  # Remplace avec ton nom souhaité
-          RESOURCE_GROUP="DevOpsM1"
-          LOCATION="francecentral"
-          # Enregistrer ces informations dans des variables d'environnement
-          echo "ACR_NAME=$ACR_NAME" >> $GITHUB_ENV
-          echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
-          echo "LOCATION=$LOCATION" >> $GITHUB_ENV
-
-      - name: Check if ACR exists, if not create it
-        run: |
-          # Vérifier si l'ACR existe
-          ACR_EXISTS=$(az acr show --name $ACR_NAME --resource-group $RESOURCE_GROUP --query "name" -o tsv)
-          if [ "$ACR_EXISTS" != "$ACR_NAME" ]; then
-            echo "ACR does not exist. Creating ACR..."
-            # Créer le registre si il n'existe pas
-            az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Basic --location $LOCATION
-          else
-            echo "ACR $ACR_NAME already exists."
-          fi
-
-      - name: Login to Azure ACR
-        run: |
-          az acr login --name $ACR_NAME
-
-      - name: Tag Docker image
-        run: |
-          IMAGE_NAME="health-calculator"
-          docker tag $IMAGE_NAME $ACR_NAME.azurecr.io/$IMAGE_NAME:v1
-
+      # Étape 3 : Pousser l'image Docker sur Azure Container Registry (ACR)
       - name: Push Docker image to ACR
         run: |
-          docker push $ACR_NAME.azurecr.io/$IMAGE_NAME:v1
+          docker tag health-calculator healthcalcacr.azurecr.io/health-calculator:v1
+          docker push healthcalcacr.azurecr.io/health-calculator:v1
 
+      # Étape 4 : Déployer l'image Docker sur Azure Web App
       - name: Deploy to Azure Web App
         run: |
           az webapp config container set \
             --name health-calculator-serviceJo \
-            --resource-group $RESOURCE_GROUP \
-            --docker-custom-image-name $ACR_NAME.azurecr.io/$IMAGE_NAME:v1 \
-            --docker-registry-server-url https://$ACR_NAME.azurecr.io
+            --resource-group DevOpsM1 \
+            --docker-custom-image-name healthcalcacr.azurecr.io/health-calculator:v1 \
+            --docker-registry-server-url https://healthcalcacr.azurecr.io
 
+      # Étape 5 : Vérifier le déploiement
       - name: Verify app deployment
         run: |
-          sleep 10  # Attendre 10 secondes avant de tester
+          sleep 10 # Attendre 10 secondes pour que l'app se déploie
           curl -f https://health-calculator-serviceJo.azurewebsites.net || exit 1
